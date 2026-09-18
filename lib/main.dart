@@ -114,6 +114,15 @@ class _HomeScreenState extends State<HomeScreen> {
     _loadTransactions();
   }
 
+  Future<void> _deleteTransaction(int index) async {
+    final t = _transactions[index];
+    if (t.id == null) return;
+    await DatabaseHelper.instance.deleteTransaction(t.id!);
+    setState(() {
+      _transactions.removeAt(index);
+    });
+  }
+
   void _openAddTransactionScreen() async {
     final result = await Navigator.push(
       context,
@@ -208,7 +217,28 @@ class _HomeScreenState extends State<HomeScreen> {
                 delegate: SliverChildBuilderDelegate(
                   (context, index) {
                     final t = _transactions[index];
-                    return TransactionTile(title: t.title, category: t.category, amount: t.amount);
+                    return Dismissible(
+                      key: Key(t.id.toString()),
+                      direction: DismissDirection.endToStart,
+                      background: Container(
+                        alignment: Alignment.centerRight,
+                        padding: const EdgeInsets.only(right: 20),
+                        margin: const EdgeInsets.only(bottom: 10),
+                        decoration: BoxDecoration(
+                          color: Colors.red,
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        child: const Icon(Icons.delete_rounded, color: Colors.white),
+                      ),
+                      onDismissed: (direction) {
+                        _deleteTransaction(index);
+                      },
+                      child: TransactionTile(
+                        title: t.title,
+                        category: t.category,
+                        amount: t.amount,
+                      ),
+                    );
                   },
                   childCount: _transactions.length,
                 ),
