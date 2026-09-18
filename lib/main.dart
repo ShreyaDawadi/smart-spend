@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'database_helper.dart';
+import 'receipt_scanner_screen.dart';
 
 void main() {
   runApp(const SmartSpendApp());
@@ -246,11 +247,30 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
         ],
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: _openAddTransactionScreen,
-        backgroundColor: const Color(0xFF6C5CE7),
-        icon: const Icon(Icons.add),
-        label: const Text('Add'),
+            floatingActionButton: Column(
+        mainAxisAlignment: MainAxisAlignment.end,
+        children: [
+          FloatingActionButton(
+            heroTag: 'scan',
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const ReceiptScannerScreen()),
+              );
+            },
+            backgroundColor: Colors.white,
+            foregroundColor: const Color(0xFF6C5CE7),
+            child: const Icon(Icons.document_scanner_rounded),
+          ),
+          const SizedBox(height: 12),
+          FloatingActionButton.extended(
+            heroTag: 'add',
+            onPressed: _openAddTransactionScreen,
+            backgroundColor: const Color(0xFF6C5CE7),
+            icon: const Icon(Icons.add),
+            label: const Text('Add'),
+          ),
+        ],
       ),
     );
   }
