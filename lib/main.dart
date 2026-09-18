@@ -251,17 +251,20 @@ class _HomeScreenState extends State<HomeScreen> {
         mainAxisAlignment: MainAxisAlignment.end,
         children: [
           FloatingActionButton(
-            heroTag: 'scan',
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => const ReceiptScannerScreen()),
-              );
-            },
-            backgroundColor: Colors.white,
-            foregroundColor: const Color(0xFF6C5CE7),
-            child: const Icon(Icons.document_scanner_rounded),
-          ),
+           heroTag: 'scan',
+           onPressed: () async {
+            final result = await Navigator.push(
+             context,
+             MaterialPageRoute(builder: (context) => const ReceiptScannerScreen()),
+          );
+          if (result != null && result is Transaction) {
+             _addTransaction(result);
+          }
+      },
+      backgroundColor: Colors.white,
+      foregroundColor: const Color(0xFF6C5CE7),
+      child: const Icon(Icons.document_scanner_rounded),
+),
           const SizedBox(height: 12),
           FloatingActionButton.extended(
             heroTag: 'add',
