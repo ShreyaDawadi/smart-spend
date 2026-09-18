@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'database_helper.dart';
 
 void main() {
   runApp(const SmartSpendApp());
@@ -15,7 +16,6 @@ class SmartSpendApp extends StatelessWidget {
         colorSchemeSeed: const Color(0xFF6C5CE7),
         useMaterial3: true,
         scaffoldBackgroundColor: const Color(0xFFF7F7FB),
-        fontFamily: 'Roboto',
       ),
       home: const HomeScreen(),
     );
@@ -23,14 +23,40 @@ class SmartSpendApp extends StatelessWidget {
 }
 
 class Transaction {
+  final int? id;
   final String title;
   final String category;
   final double amount;
+  final DateTime date;
 
-  Transaction({required this.title, required this.category, required this.amount});
+  Transaction({
+    this.id,
+    required this.title,
+    required this.category,
+    required this.amount,
+    required this.date,
+  });
+
+  Map<String, dynamic> toMap() {
+    return {
+      'title': title,
+      'category': category,
+      'amount': amount,
+      'date': date.toIso8601String(),
+    };
+  }
+
+  factory Transaction.fromMap(Map<String, dynamic> map) {
+    return Transaction(
+      id: map['id'] as int,
+      title: map['title'] as String,
+      category: map['category'] as String,
+      amount: map['amount'] as double,
+      date: DateTime.parse(map['date'] as String),
+    );
+  }
 }
 
-// Maps each category to an icon + color, so the UI feels alive and specific
 class CategoryStyle {
   final IconData icon;
   final Color color;
@@ -60,12 +86,22 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  final List<Transaction> _transactions = [
-    Transaction(title: 'Bhatbhateni Groceries', category: 'Groceries', amount: -1250),
-    Transaction(title: 'Salary', category: 'Income', amount: 45000),
-    Transaction(title: 'Bus Fare', category: 'Transport', amount: -50),
-    Transaction(title: 'Momo with friends', category: 'Food', amount: -320),
-  ];
+  List<Transaction> _transactions = [];
+  bool _loading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadTransactions();
+  }
+
+  Future<void> _loadTransactions() async {
+    final rows = await DatabaseHelper.instance.getAllTransactions();
+    setState(() {
+      _transactions = rows.map((row) => Transaction.fromMap(row)).toList();
+      _loading = false;
+    });
+  }
 
   double get _totalBalance => _transactions.fold(0, (sum, t) => sum + t.amount);
   double get _totalExpense =>
@@ -73,8 +109,9 @@ class _HomeScreenState extends State<HomeScreen> {
   double get _totalIncome =>
       _transactions.where((t) => t.amount > 0).fold(0, (sum, t) => sum + t.amount);
 
-  void _addTransaction(Transaction transaction) {
-    setState(() => _transactions.insert(0, transaction));
+  Future<void> _addTransaction(Transaction transaction) async {
+    await DatabaseHelper.instance.insertTransaction(transaction.toMap());
+    _loadTransactions();
   }
 
   void _openAddTransactionScreen() async {
@@ -82,11 +119,17 @@ class _HomeScreenState extends State<HomeScreen> {
       context,
       MaterialPageRoute(builder: (context) => const AddTransactionScreen()),
     );
-    if (result != null && result is Transaction) _addTransaction(result);
+    if (result != null && result is Transaction) {
+      _addTransaction(result);
+    }
   }
 
   @override
   Widget build(BuildContext context) {
+    if (_loading) {
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    }
+
     return Scaffold(
       body: CustomScrollView(
         slivers: [
@@ -128,14 +171,14 @@ class _HomeScreenState extends State<HomeScreen> {
                           icon: Icons.arrow_downward_rounded,
                           label: 'Income',
                           amount: _totalIncome,
-                          color: const Color(0xFF00E676),
+                          pillColor: const Color(0xFF00E676),
                         ),
                         const SizedBox(width: 12),
                         _SummaryPill(
                           icon: Icons.arrow_upward_rounded,
                           label: 'Expense',
                           amount: _totalExpense,
-                          color: const Color(0xFFFF7675),
+                          pillColor: const Color(0xFFFF7675),
                         ),
                       ],
                     ),
@@ -144,18 +187,33 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             ),
           ),
-          SliverPadding(
-            padding: const EdgeInsets.fromLTRB(16, 16, 16, 100),
-            sliver: SliverList(
-              delegate: SliverChildBuilderDelegate(
-                (context, index) {
-                  final t = _transactions[index];
-                  return TransactionTile(title: t.title, category: t.category, amount: t.amount);
-                },
-                childCount: _transactions.length,
+          if (_transactions.isEmpty)
+            const SliverFillRemaining(
+              hasScrollBody: false,
+              child: Center(
+                child: Padding(
+                  padding: EdgeInsets.all(24),
+                  child: Text(
+                    'No transactions yet.\nTap + to add your first one!',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(color: Colors.grey, fontSize: 16),
+                  ),
+                ),
+              ),
+            )
+          else
+            SliverPadding(
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 100),
+              sliver: SliverList(
+                delegate: SliverChildBuilderDelegate(
+                  (context, index) {
+                    final t = _transactions[index];
+                    return TransactionTile(title: t.title, category: t.category, amount: t.amount);
+                  },
+                  childCount: _transactions.length,
+                ),
               ),
             ),
-          ),
         ],
       ),
       floatingActionButton: FloatingActionButton.extended(
@@ -172,13 +230,13 @@ class _SummaryPill extends StatelessWidget {
   final IconData icon;
   final String label;
   final double amount;
-  final Color color;
+  final Color pillColor;
 
   const _SummaryPill({
     required this.icon,
     required this.label,
     required this.amount,
-    required this.color,
+    required this.pillColor,
   });
 
   @override
@@ -187,14 +245,14 @@ class _SummaryPill extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
         decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: 0.15),
+          color: Colors.white.withOpacity(0.15),
           borderRadius: BorderRadius.circular(14),
         ),
         child: Row(
           children: [
             Container(
               padding: const EdgeInsets.all(6),
-              decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+              decoration: BoxDecoration(color: pillColor, shape: BoxShape.circle),
               child: Icon(icon, size: 14, color: Colors.white),
             ),
             const SizedBox(width: 8),
@@ -244,7 +302,7 @@ class TransactionTile extends StatelessWidget {
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.04),
+            color: Colors.black.withOpacity(0.04),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
@@ -255,7 +313,7 @@ class TransactionTile extends StatelessWidget {
           Container(
             padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
-              color: style.color.withValues(alpha: 0.15),
+              color: style.color.withOpacity(0.15),
               borderRadius: BorderRadius.circular(12),
             ),
             child: Icon(style.icon, color: style.color, size: 22),
@@ -265,11 +323,9 @@ class TransactionTile extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(title,
-                    style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15)),
+                Text(title, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15)),
                 const SizedBox(height: 2),
-                Text(category,
-                    style: TextStyle(color: Colors.grey.shade500, fontSize: 13)),
+                Text(category, style: TextStyle(color: Colors.grey.shade500, fontSize: 13)),
               ],
             ),
           ),
@@ -323,6 +379,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
       title: title,
       category: _selectedCategory,
       amount: _isExpense ? -amount : amount,
+      date: DateTime.now(),
     );
 
     Navigator.pop(context, transaction);
@@ -356,7 +413,11 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
                 ButtonSegment(value: false, label: Text('Income'), icon: Icon(Icons.add)),
               ],
               selected: {_isExpense},
-              onSelectionChanged: (selection) => setState(() => _isExpense = selection.first),
+              onSelectionChanged: (selection) {
+                setState(() {
+                  _isExpense = selection.first;
+                });
+              },
             ),
             const SizedBox(height: 20),
             TextField(
@@ -365,7 +426,10 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
                 labelText: 'Title',
                 filled: true,
                 fillColor: Colors.white,
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide.none,
+                ),
               ),
             ),
             const SizedBox(height: 16),
@@ -376,7 +440,10 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
                 labelText: 'Amount (Rs)',
                 filled: true,
                 fillColor: Colors.white,
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide.none,
+                ),
               ),
             ),
             const SizedBox(height: 20),
@@ -389,23 +456,32 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
                 final style = categoryStyles[cat]!;
                 final selected = _selectedCategory == cat;
                 return GestureDetector(
-                  onTap: () => setState(() => _selectedCategory = cat),
+                  onTap: () {
+                    setState(() {
+                      _selectedCategory = cat;
+                    });
+                  },
                   child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                     decoration: BoxDecoration(
                       color: selected ? style.color : Colors.white,
                       borderRadius: BorderRadius.circular(20),
-                      border: Border.all(color: style.color.withValues(alpha: selected ? 1 : 0.3)),
+                      border: Border.all(
+                        color: style.color.withOpacity(selected ? 1 : 0.3),
+                      ),
                     ),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Icon(style.icon, size: 16, color: selected ? Colors.white : style.color),
                         const SizedBox(width: 6),
-                        Text(cat,
-                            style: TextStyle(
-                                color: selected ? Colors.white : Colors.black87,
-                                fontWeight: FontWeight.w500)),
+                        Text(
+                          cat,
+                          style: TextStyle(
+                            color: selected ? Colors.white : Colors.black87,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
                       ],
                     ),
                   ),
