@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'database_helper.dart';
 import 'receipt_scanner_screen.dart';
+import 'insights_screen.dart';
 
 void main() {
   runApp(const SmartSpendApp());
@@ -147,6 +148,19 @@ class _HomeScreenState extends State<HomeScreen> {
             expandedHeight: 220,
             pinned: true,
             backgroundColor: const Color(0xFF6C5CE7),
+            actions: [
+              IconButton(
+                icon: const Icon(Icons.pie_chart_rounded, color: Colors.white),
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => InsightsScreen(transactions: _transactions),
+                    ),
+                  );
+                },
+              ),
+            ],
             flexibleSpace: FlexibleSpaceBar(
               background: Container(
                 decoration: const BoxDecoration(
@@ -247,24 +261,24 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
         ],
       ),
-            floatingActionButton: Column(
+      floatingActionButton: Column(
         mainAxisAlignment: MainAxisAlignment.end,
         children: [
           FloatingActionButton(
-           heroTag: 'scan',
-           onPressed: () async {
-            final result = await Navigator.push(
-             context,
-             MaterialPageRoute(builder: (context) => const ReceiptScannerScreen()),
-          );
-          if (result != null && result is Transaction) {
-             _addTransaction(result);
-          }
-      },
-      backgroundColor: Colors.white,
-      foregroundColor: const Color(0xFF6C5CE7),
-      child: const Icon(Icons.document_scanner_rounded),
-),
+            heroTag: 'scan',
+            onPressed: () async {
+              final result = await Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const ReceiptScannerScreen()),
+              );
+              if (result != null && result is Transaction) {
+                _addTransaction(result);
+              }
+            },
+            backgroundColor: Colors.white,
+            foregroundColor: const Color(0xFF6C5CE7),
+            child: const Icon(Icons.document_scanner_rounded),
+          ),
           const SizedBox(height: 12),
           FloatingActionButton.extended(
             heroTag: 'add',
