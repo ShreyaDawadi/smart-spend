@@ -65,7 +65,7 @@ class _ReceiptScannerScreenState extends State<ReceiptScannerScreen> {
   }
 
   Future<void> _sendToBackend(String rawText) async {
-    const backendUrl = 'http://192.168.1.74:3001/api/parse-receipt';
+    const backendUrl = 'https://smartspend-backend-2c6i.onrender.com/api/parse-receipt';
 
     try {
       final response = await http.post(
